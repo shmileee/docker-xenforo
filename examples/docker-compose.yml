@@ -5,53 +5,43 @@ services:
     image: alpine
     command: ["uptime"]
     volumes:
-      - ./src/:/var/www/html/
-
-  php-apache:
-    image: xfrocks/xenforo:php-apache
-    environment:
-      - VIRTUAL_HOST=apache.local.xfrocks.com
-    ports:
-      - "4433:443"
-    volumes_from:
-      - src
+      - ./upload/:/var/www/html/
 
   php-fpm:
     image: xfrocks/xenforo:php-fpm
     volumes_from:
       - src
+    links:
+      - mysql
+
+  mysql:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: 'password'
+      MYSQL_DATABASE: 'database'
+      MYSQL_USER: 'user'
+      MYSQL_PASSWORD: 'password'
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./upload/internal_data/mysql:/var/lib/mysql
 
   nginx:
     image: xfrocks/xenforo:nginx
     environment:
       - NGINX_ACCESS_LOG_FORMAT=timed
       - NGINX_FAST_CGI_PASS=php-fpm:9000
-      - VIRTUAL_HOST=nginx.local.xfrocks.com
+      - VIRTUAL_HOST=vps821089.ovh.net
     links:
       - php-fpm
     volumes_from:
       - src
 
-  caddy:
-    image: xfrocks/xenforo:caddy
-    environment:
-      - CADDY_PHP_FASTCGI_ENDPOINT=php-fpm:9000
-      - VIRTUAL_HOST=caddy.local.xfrocks.com
-      - VIRTUAL_PORT=2015
-    links:
-      - php-fpm
-      - proxy
-    volumes:
-      - ./.data/caddy:/root/.caddy
-    volumes_from:
-      - src
-    ports:
-      - "2015"
-      - "443:443"
-
-  proxy:
+  nginx-proxy:
     image: jwilder/nginx-proxy
     ports:
       - "80:80"
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./network_internal.conf:/etc/nginx/network_internal.conf:ro
